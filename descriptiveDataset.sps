@@ -1,3 +1,4 @@
+* Encoding: UTF-8.
 * Function to create a data set with the descriptive statistics for
 * a set of variables. Also allows you to obtain these separately within
 * the levels of a categorical split variable.
@@ -13,13 +14,13 @@ MODE KURTOSIS SEKURT MEDIAN SUM VALID MISSING
 the full data set. If it is provided, then the statistics are calculated separately for
 each level of the split variable
 
-* EXAMPLE 1: descriptiveDataset(["descriptiveDataset(["CTHeadSt", "CTPubSch"], 
+* EXAMPLE 1: descriptiveDataset(["CTHeadSt", "CTPubSch"], 
     ["MEAN", "STDDEV"], e_site)
 This command would produce a data set with the mean and standard deviations
 of the variables CTHeadST and CTPubSch for each of the levels of the e_site
 variable. There would be one line in the data set for each level of e_site
 
-* EXAMPLE 2: descriptiveDataset(["descriptiveDataset(["CTHeadSt"], 
+* EXAMPLE 2: descriptiveDataset(["CTHeadSt"], 
     ["MEAN", "STDDEV"])
 This command would produce a data set containing the overall mean and 
 standard deviation of the CTHeadSt variable. There would only be a single
@@ -31,10 +32,20 @@ line in the data set.
 * 2013-04-06 Created
 * 2013-09-11 Fixed error with reporting splitvariable
     Fixed problem with variable order
+* 2016-12-03 Fixed error with output variable types
+* 2016-12-04 Changed program so that it doesn't overwrite 
+    existing data sets
 
 set printback=off.
 begin program python.
 import spss, spssaux, os
+
+def is_number(s):
+    try:
+        float(s)
+        return True
+    except ValueError:
+        return False
 
 def getVariableIndex(variable):
    	for t in range(spss.GetVariableCount()):
@@ -78,6 +89,9 @@ def descriptiveDataset(variableList, statList, splitvar="None"):
 # SEMEAN VARIANCE SKEWNESS SESKEW RANGE
 # MODE KURTOSIS SEKURT MEDIAN SUM VALID MISSING
 
+# Determine active data set so we can return to it when finished
+    activeName = spss.ActiveDataset()
+
     if (splitvar == "None"):
 # Extracting the VALID and MISSING stats from statList
         valid = 0
@@ -100,7 +114,6 @@ def descriptiveDataset(variableList, statList, splitvar="None"):
             for stat in statList2:
                 cmd = cmd + stat + "\n"
         cmd = cmd + "/ORDER=ANALYSIS."
-        print cmd
         handle,failcode=spssaux.CreateXMLOutput(
 		cmd,
 		omsid="Frequencies",
@@ -117,35 +130,57 @@ def descriptiveDataset(variableList, statList, splitvar="None"):
         varnum = len(variableList)
         statnum = len(statList2)
 
+# Extracting values from output
+        dtline = []
+        dtline.append(str(sl))
         if (valid == 1):
-            dtline = dtline + result[:varnum]
+            for r in result[:varnum]:
+                dtline.append(int(float(r)))
         if (missing == 1):
-            dtline = dtline + result[varnum:2*varnum]
+                for r in result[varnum:2*varnum]:
+                    dtline.append(int(float(r)))
         if (len(statList2)>0):
-            dtline = dtline +result[2*varnum:]
+                for r in result[2*varnum:]:
+                    dtline.append(float(r))
         dt.append(dtline)
 
-# Create datset
-        spss.StartDataStep()
-        datasetObj = spss.Dataset(name=None)
-        dsetname = datasetObj.name
-        if (valid == 1):
-            for var in variableList:
-                datasetObj.varlist.append(var + "_" + 'VALID',0)
-        if (missing == 1):
-            for var in variableList:
-                datasetObj.varlist.append(var + "_" + 'MISSING',0)
-        for stat in statList2:
-            for var in variableList:
-                datasetObj.varlist.append(var + "_" + stat,0)
+ # Determine active data set so we can return to it when finished
+        activeName = spss.ActiveDataset()
+# Set up data set if it doesn't already exist
+        tag,err = spssaux.createXmlOutput('Dataset Display',
+omsid='Dataset Display', subtype='Datasets')
+        datasetList = spssaux.getValuesFromXmlWorkspace(tag, 'Datasets')
 
+        if ("Descriptives" not in datasetList):
+            spss.StartDataStep()
+            datasetObj = spss.Dataset(name=None)
+            dsetname = datasetObj.name
+            spss.SetActive(datasetObj)
+            if (valid == 1):
+                for var in variableList:
+                    datasetObj.varlist.append(var + "_" + 'VALID',0)
+            if (missing == 1):
+                for var in variableList:
+                    datasetObj.varlist.append(var + "_" + 'MISSING',0)
+            for stat in statList2:
+                for var in variableList:
+                    datasetObj.varlist.append(var + "_" + stat,0)
+            spss.EndDataStep()
+            submitstring = """dataset activate {0}.
+dataset name Descriptives.""".format(dsetname)
+            spss.Submit(submitstring)
+
+        spss.StartDataStep()     
+        datasetObj = spss.Dataset(name = "*")
+        spss.SetActive(datasetObj)
         for line in dt:
            datasetObj.cases.append(line)
         spss.EndDataStep()
 
-        submitstring = """dataset activate %s.
-dataset name descriptives.""" %(dsetname)
+        submitstring = """dataset activate {0}.
+use all.""".format(activeName)
         spss.Submit(submitstring)
+
         
     else: # Has a split variable
 
@@ -196,36 +231,55 @@ EXECUTE.""" %(splitvar, sl)
             dtline = []
             dtline.append(str(sl))
             if (valid == 1):
-                dtline = dtline + result[:varnum]
+                for r in result[:varnum]:
+                    dtline.append(int(float(r)))
             if (missing == 1):
-                dtline = dtline + result[varnum:2*varnum]
+                    for r in result[varnum:2*varnum]:
+                        dtline.append(int(float(r)))
             if (len(statList2)>0):
-                dtline = dtline +result[2*varnum:]
+                    for r in result[2*varnum:]:
+                        dtline.append(float(r))
             dt.append(dtline)
 
-# Create datset
+# Determine active data set so we can return to it when finished
+        activeName = spss.ActiveDataset()
+# Set up data set if it doesn't already exist
+        tag,err = spssaux.createXmlOutput('Dataset Display',
+omsid='Dataset Display', subtype='Datasets')
+        datasetList = spssaux.getValuesFromXmlWorkspace(tag, 'Datasets')
+
+        if ("Descriptives" not in datasetList):
+            spss.StartDataStep()
+            datasetObj = spss.Dataset(name=None)
+            dsetname = datasetObj.name
+            spss.SetActive(datasetObj)
+            datasetObj.varlist.append(splitvar, 50)
+            if (valid == 1):
+                for var in variableList:
+                    datasetObj.varlist.append(var + "_" + 'VALID',0)
+            if (missing == 1):
+                for var in variableList:
+                    datasetObj.varlist.append(var + "_" + 'MISSING',0)
+            for stat in statList2:
+                for var in variableList:
+                    datasetObj.varlist.append(var + "_" + stat,0)
+            spss.EndDataStep()
+            submitstring = """dataset activate {0}.
+dataset name Descriptives.""".format(dsetname)
+            spss.Submit(submitstring)
+
         spss.StartDataStep()
-        datasetObj = spss.Dataset(name=None)
-        dsetname = datasetObj.name
-        datasetObj.varlist.append(splitvar)
-        if (valid == 1):
-            for var in variableList:
-                datasetObj.varlist.append(var + "_" + 'VALID',0)
-        if (missing == 1):
-            for var in variableList:
-                datasetObj.varlist.append(var + "_" + 'MISSING',0)
-        for stat in statList2:
-            for var in variableList:
-                datasetObj.varlist.append(var + "_" + stat,0)
+        datasetObj = spss.Dataset(name = "Descriptives")
+        spss.SetActive(datasetObj)
 
         for line in dt:
-           datasetObj.cases.append(line)
+            if (len(line) == len(variableList)*len(statList)+1):
+                datasetObj.cases.append(line)
         spss.EndDataStep()
 
-        submitstring = """dataset activate %s.
-dataset name descriptives.""" %(dsetname)
+        submitstring = """dataset activate {0}.
+use all.""".format(activeName)
         spss.Submit(submitstring)
 
 end program python.
 set printback=on.
-
