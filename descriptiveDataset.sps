@@ -14,9 +14,8 @@ MODE KURTOSIS SEKURT MEDIAN SUM VALID MISSING
 the full data set. If it is provided, then the statistics are calculated separately for
 each level of the split variable
 **** "datasetLabels" is an optional argument that identifies a list of
-strings identifying values that would be applied to the dataset. 
-This can be useful if you are appending the results from multiple 
-analyses to the same dataset.
+strings identifying values that would be applied to the dataset.  This can be useful 
+if you are appending the results from multiple analyses to the same dataset.
 
 * EXAMPLE 1: descriptiveDataset(["CTHeadSt", "CTPubSch"], 
     ["MEAN", "STDDEV"], "e_site")
