@@ -4,18 +4,22 @@
 * the levels of a categorical split variable.
 * Written by Jamie DeCoster
 
-* Usage: descriptiveDataset(List of variables, List of statistics, Optional split variable)
-* List of variables is a list of the variables on which the statistics will be calculated
-* List of statistics is a list of statistics that should be calculated on the list of
+**** Usage: descriptiveDataset(variableList, statList, [splitvar], [datasetLabels])
+**** "variableList" is a list of the variables on which the statistics will be calculated
+**** "statList" is a list of statistics that should be calculated on the list of
 variables. Valid values are MEAN STDDEV MINIMUM MAXIMUM
 SEMEAN VARIANCE SKEWNESS SESKEW RANGE
 MODE KURTOSIS SEKURT MEDIAN SUM VALID MISSING
-* If the Optional split variable is omitted, then the statistics are calculated on
+**** "splitvar" is an optional split variable. If the split variable is omitted, then the statistics are calculated on
 the full data set. If it is provided, then the statistics are calculated separately for
 each level of the split variable
+**** "datasetLabels" is an optional argument that identifies a list of
+strings identifying values that would be applied to the dataset. 
+This can be useful if you are appending the results from multiple 
+analyses to the same dataset.
 
 * EXAMPLE 1: descriptiveDataset(["CTHeadSt", "CTPubSch"], 
-    ["MEAN", "STDDEV"], e_site)
+    ["MEAN", "STDDEV"], "e_site")
 This command would produce a data set with the mean and standard deviations
 of the variables CTHeadST and CTPubSch for each of the levels of the e_site
 variable. There would be one line in the data set for each level of e_site
@@ -35,6 +39,11 @@ line in the data set.
 * 2016-12-03 Fixed error with output variable types
 * 2016-12-04 Changed program so that it doesn't overwrite 
     existing data sets
+* 2016-12-04a Added label variables
+* 2016-12-19 Corrected double use of variableList
+* 2016-12-26 Corrected error when no split variable
+* 2016-12-27 Edited documentation
+* 2016-12-28 Corrected error when appending results
 
 set printback=off.
 begin program python.
@@ -84,13 +93,10 @@ SET Tnumbers=Labels.""" %(variable)
     spss.DeleteXPathHandle(handle)
     return values2
 
-def descriptiveDataset(variableList, statList, splitvar="None"):
+def descriptiveDataset(variableList, statList, splitvar="None", datasetLabels =  []):
 # Valid values for stat are MEAN STDDEV MINIMUM MAXIMUM
 # SEMEAN VARIANCE SKEWNESS SESKEW RANGE
 # MODE KURTOSIS SEKURT MEDIAN SUM VALID MISSING
-
-# Determine active data set so we can return to it when finished
-    activeName = spss.ActiveDataset()
 
     if (splitvar == "None"):
 # Extracting the VALID and MISSING stats from statList
@@ -126,13 +132,10 @@ def descriptiveDataset(variableList, statList, splitvar="None"):
 
 # Extracting values from output
         dt = []
-        dtline = []
         varnum = len(variableList)
         statnum = len(statList2)
 
-# Extracting values from output
         dtline = []
-        dtline.append(str(sl))
         if (valid == 1):
             for r in result[:varnum]:
                 dtline.append(int(float(r)))
@@ -142,6 +145,7 @@ def descriptiveDataset(variableList, statList, splitvar="None"):
         if (len(statList2)>0):
                 for r in result[2*varnum:]:
                     dtline.append(float(r))
+        dtline.extend(datasetLabels)
         dt.append(dtline)
 
  # Determine active data set so we can return to it when finished
@@ -155,7 +159,6 @@ omsid='Dataset Display', subtype='Datasets')
             spss.StartDataStep()
             datasetObj = spss.Dataset(name=None)
             dsetname = datasetObj.name
-            spss.SetActive(datasetObj)
             if (valid == 1):
                 for var in variableList:
                     datasetObj.varlist.append(var + "_" + 'VALID',0)
@@ -165,21 +168,31 @@ omsid='Dataset Display', subtype='Datasets')
             for stat in statList2:
                 for var in variableList:
                     datasetObj.varlist.append(var + "_" + stat,0)
+
+    # Label variables
+            datasetVariableList =[]
+            for t in range(spss.GetVariableCount()):
+                datasetVariableList.append(spss.GetVariableName(t))
+            for t in range(len(datasetLabels)):
+                if ("label{0}".format(str(t)) not in datasetVariableList):
+                    datasetObj.varlist.append("label{0}".format(str(t)), 50)
+
             spss.EndDataStep()
             submitstring = """dataset activate {0}.
 dataset name Descriptives.""".format(dsetname)
             spss.Submit(submitstring)
 
         spss.StartDataStep()     
-        datasetObj = spss.Dataset(name = "*")
-        spss.SetActive(datasetObj)
+        datasetObj = spss.Dataset(name = "Descriptives")
         for line in dt:
            datasetObj.cases.append(line)
         spss.EndDataStep()
 
-        submitstring = """dataset activate {0}.
-use all.""".format(activeName)
-        spss.Submit(submitstring)
+# Return to original data set
+        spss.StartDataStep()
+        datasetObj = spss.Dataset(name = activeName)
+        spss.SetActive(datasetObj)
+        spss.EndDataStep()
 
         
     else: # Has a split variable
@@ -216,7 +229,6 @@ EXECUTE.""" %(splitvar, sl)
                 for stat in statList2:
                     cmd = cmd + stat + "\n"
             cmd = cmd + "/ORDER=ANALYSIS."
-            print cmd
             handle,failcode=spssaux.CreateXMLOutput(
 		cmd,
 		omsid="Frequencies",
@@ -239,6 +251,7 @@ EXECUTE.""" %(splitvar, sl)
             if (len(statList2)>0):
                     for r in result[2*varnum:]:
                         dtline.append(float(r))
+            dtline.extend(datasetLabels)
             dt.append(dtline)
 
 # Determine active data set so we can return to it when finished
@@ -263,6 +276,15 @@ omsid='Dataset Display', subtype='Datasets')
             for stat in statList2:
                 for var in variableList:
                     datasetObj.varlist.append(var + "_" + stat,0)
+
+    # Label variables
+            datasetVariableList =[]
+            for t in range(spss.GetVariableCount()):
+                datasetVariableList.append(spss.GetVariableName(t))
+            for t in range(len(datasetLabels)):
+                if ("label{0}".format(str(t)) not in datasetVariableList):
+                    datasetObj.varlist.append("label{0}".format(str(t)), 50)
+
             spss.EndDataStep()
             submitstring = """dataset activate {0}.
 dataset name Descriptives.""".format(dsetname)
@@ -273,13 +295,15 @@ dataset name Descriptives.""".format(dsetname)
         spss.SetActive(datasetObj)
 
         for line in dt:
-            if (len(line) == len(variableList)*len(statList)+1):
+            if (len(line) == len(variableList)*len(statList)+1+len(datasetLabels)):
                 datasetObj.cases.append(line)
         spss.EndDataStep()
 
-        submitstring = """dataset activate {0}.
-use all.""".format(activeName)
-        spss.Submit(submitstring)
+# Return to original data set
+        spss.StartDataStep()
+        datasetObj = spss.Dataset(name = activeName)
+        spss.SetActive(datasetObj)
+        spss.EndDataStep()
 
 end program python.
 set printback=on.
