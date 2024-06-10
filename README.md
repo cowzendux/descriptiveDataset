@@ -38,7 +38,7 @@ datasetLabels = ["Alaska", "1999"])**
 * There would be one line in the data set for each level of e_site.
 * Each of these lines would have two label variables, the first of which would have the value of "Alaska" and the second of which would be "1999". If issued a second descriptiveDataset command, you might add additional rows to the dataset to represent other states and years.
 
-## EXAMPLE 2: 
+## Example 2: 
 **descriptiveDataset(["descriptiveDataset(variableList = ["CTHeadSt"],    
 statList = ["MEAN", "STDDEV"])**
 * This command would produce a data set containing the overall mean and standard deviation of the CTHeadSt variable. There would only be a single line in the data set.
