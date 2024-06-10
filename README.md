@@ -30,9 +30,15 @@ This and other SPSS Python Extension functions can be found at http://www.stat-h
 * "datasetLabels" is an optional argument that identifies a list of strings identifying values that would be applied to the dataset. This can be useful if you are appending the results from multiple analyses to the same dataset.
 
 ## Example 1
-**descriptiveDataset(["descriptiveDataset(["CTHeadSt", "CTPubSch"], ["MEAN", "STDDEV"], e_site, ["Alaska", "1999"])**
-* This command would produce a data set with the mean and standard deviations of the variables CTHeadST and CTPubSch for each of the levels of the e_site variable. There would be one line in the data set for each level of e_site. Each of these lines would have two label variables, the first of which would have the value of "Alaska" and the second of which would be "1999". If issued a second descriptiveDataset command, you might add additional rows to the dataset to represent other states and years.
+**descriptiveDataset(variableList = ["descriptiveDataset(variableList = ["CTHeadSt", "CTPubSch"],    
+statList = ["MEAN", "STDDEV"],    
+splitvar = "e_site",    
+datasetLabels = ["Alaska", "1999"])**
+* This command would produce a data set with the mean and standard deviations of the variables CTHeadST and CTPubSch for each of the levels of the e_site variable.
+* There would be one line in the data set for each level of e_site.
+* Each of these lines would have two label variables, the first of which would have the value of "Alaska" and the second of which would be "1999". If issued a second descriptiveDataset command, you might add additional rows to the dataset to represent other states and years.
 
 ## EXAMPLE 2: 
-**descriptiveDataset(["descriptiveDataset(["CTHeadSt"], ["MEAN", "STDDEV"])**
+**descriptiveDataset(["descriptiveDataset(variableList = ["CTHeadSt"],    
+statList = ["MEAN", "STDDEV"])**
 * This command would produce a data set containing the overall mean and standard deviation of the CTHeadSt variable. There would only be a single line in the data set.
